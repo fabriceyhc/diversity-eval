@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+import matplotlib.pyplot as plt
+import seaborn as sns 
+from tqdm import tqdm
 import numpy as np
 import tempfile
 import os
@@ -138,8 +141,8 @@ class Similarity2DiversityFromFileMetric(DiversityMetric):
         # reformat input_csv for to a tsv file, as an input for sentence similarity neural models
 
         out_fields = ['index', 'sentence1_id', 'sentence2_id', 'sentence1', 'sentence2']
-        f_in = open(self.config['input_path'], 'r')
-        f_out = open(self.config['input_tsv'], 'w')
+        f_in = open(self.config['input_path'], 'r', encoding='utf-8')
+        f_out = open(self.config['input_tsv'], 'w', encoding='utf-8')
         reader = csv.DictReader(f_in, dialect='excel')
         writer = csv.DictWriter(f_out, fieldnames=out_fields, dialect='excel-tab')
         writer.writeheader()
@@ -233,3 +236,136 @@ class AveragedNgramDiversityMetric(DiversityMetric):
             # print('{}, {}'.format(self.ngram_metric.config['n'], result))
             ngrams_results.append(result)
         return np.mean(ngrams_results)
+
+
+class TextDiversity(DiversityMetric):
+
+    def __init__(self, config):
+        super().__init__(config)
+
+    def __call__(self, response_set):
+
+        if not all([type(s) == str and s.strip() != "" for s in response_set]):
+            print('response_set contains invalid inputs: \n {} \n returning 0'.format(response_set))
+            return 0
+
+        # embed inputs
+        embs, species = self.get_embeddings(response_set)
+
+        if len(embs) == 0:
+            return 0
+
+        # get similarity matrix 
+        Z = self.calc_Z(embs)
+        
+        # get diversity
+        num_species = len(species)
+        p = np.full(num_species, 1 / num_species)
+        D = self.calc_div(p, Z, self.config['q'])
+
+        if self.config['normalize']:
+            D /= num_species
+
+        return D
+
+    @abstractmethod
+    def get_embeddings(self, response_set, *args, **kwargs):  
+        # validate input
+        assert type(response_set) == list
+        assert all([type(e) == str for e in response_set])
+
+        # place holder
+        embs, species = None, None
+        return embs, species  
+
+    def calc_Z(self, embs):
+        
+        num_embeddings = len(embs)
+
+        Z = np.eye(num_embeddings)
+        iu = np.triu_indices(num_embeddings, k=1)
+        il = (iu[1], iu[0])
+
+        iterable = range(num_embeddings)
+        if self.verbose:
+            print('calculating similarity matrix...')
+            iterable = tqdm(iterable)
+
+        for e1 in iterable:
+            for e2 in range(1, num_embeddings - e1):
+                d = self.config['distance_fn'](embs[e1], embs[e1 + e2])
+                if self.config['scale_dist'] == "exp":
+                    d = np.exp(-d)
+                elif self.config['scale_dist'] == "invert":
+                    d = 1 - d
+                Z[e1][e1 + e2] = d     
+        Z[il] = Z[iu]
+
+        # remove some noise from the Z similarities
+        if self.config['sq_reg']:
+            Z **= 2 
+
+        # remove some noise from the Z similarities
+        if self.config['mean_adj']:
+            off_diag = np.where(~np.eye(Z.shape[0],dtype=bool))
+            Z[off_diag] -= Z[off_diag].mean()
+            Z = np.where(Z < 0, 0 , Z)
+
+        return Z
+
+    def calc_div(self, p, Z, q=1):
+        Zp =  Z @ p
+        if q == 1:
+            D = 1 / np.prod(Zp ** p)
+        elif q == float('inf'):
+            D = 1 / Zp.max()
+        else:
+            D = (p * Zp ** (q-1)).sum() ** (1/(1-q))
+        return D  
+
+    def diversity_profile(self, response_set, range=None):
+
+        # embed inputs
+        embs, species = self.get_embeddings(response_set)
+
+        if len(embs) == 0:
+            return 0
+
+        # get similarity matrix 
+        Z = self.calc_Z(embs)
+
+        # get diversities for all q in range
+        if range is None:
+            range = np.arange(0, 101)
+
+        num_species = len(species)
+        p = np.full(num_species, 1/num_species)
+
+        Ds = []
+        for q in range:
+            D = self.calc_div(p, Z, q)
+            Ds.append(D)
+
+        # plot diversity profile
+        ax = sns.lineplot(x=range, y=Ds)  
+        ax.set(xlabel="Sensitivity Parameter, $q$", 
+               ylabel="Diversity $^qD^{\mathbf{Z}}(\mathbf{p})$", 
+               title="Corpus Diversity Profile")
+        plt.show()
+
+    def species_heatmap(self, response_set, n=10):
+
+        # embed inputs
+        embs, species = self.get_embeddings(response_set)
+
+        if len(embs) == 0:
+            return 0
+
+        # get similarity matrix 
+        Z = self.calc_Z(embs)
+
+        g = sns.heatmap(np.around(Z[:n,:n], 2), annot=True, annot_kws={"fontsize": 10}, fmt='g')
+        g.set_xticklabels(species[:n], rotation=90)
+        g.set_yticklabels(species[:n], rotation=0)
+        g.set_title('Token Semantic Similarities')
+        plt.show()

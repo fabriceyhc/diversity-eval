@@ -1,0 +1,10 @@
+{
+  "global_config": {
+    "class_name": "DecTest"
+  },
+  "experiments": {
+    "story_gen": "data/with_metrics/decTest/dec_test_1000_no_hds_story_gen.csv",
+    "resp_gen": "data/with_metrics/decTest/dec_test_1000_no_hds_resp_gen.csv",
+    "prompt_gen": "data/with_metrics/decTest/dec_test_1000_no_hds_prompt_gen.csv"
+  }
+}

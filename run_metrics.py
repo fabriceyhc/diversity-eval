@@ -1,9 +1,11 @@
 import argparse
 import os
+import gc
 import csv
 import sys
 import inspect
 from copy import deepcopy
+from tqdm import tqdm
 
 #locals
 import utils
@@ -27,8 +29,11 @@ def calc_metrics(params):
                                      {'name': metric}})
 
     for metric, metric_params in metrics_dict.items():
-        metric_params.update({'field_name': 'metric_' + utils.CamleCase2snake_case(metric_params['name']),
+        metric_params.update({'field_name': 'metric_' + metric_params['name'],
                               'config': deepcopy(metric.default_config)})
+        # FHC 2020.03.01 - prefer to have the original name
+        # metric_params.update({'field_name': 'metric_' + utils.CamleCase2snake_case(metric_params['name']),
+        #                       'config': deepcopy(metric.default_config)})
         if params.ignore_cache:
             metric_params['config'].update({'ignore_cache': True})
         # TODO - if one in the future will want to inject non-default metric config, here is the place
@@ -91,6 +96,7 @@ def calc_metrics(params):
         if v['run']:
             print(k + ' -> ' + v['out_path'])
 
+    print('#' * 30)
     # calc metrics for each file
     for path, param_dict in csv_dict.items():
         if param_dict['run']:
@@ -99,10 +105,14 @@ def calc_metrics(params):
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
 
+            print(param_dict['out_path'])
+            # if 'McDiv' not in out_dir:
+            #     continue 
+
             # handle reader and writer
             input_csv_f = open(path, 'r+', encoding='utf-8')
             # TODO - check if outfile exists
-            output_csv_f = open(param_dict['out_path'], 'w', encoding='utf-8')
+            output_csv_f = open(param_dict['out_path'], 'w', encoding='utf-8', newline='')
             reader = csv.DictReader(input_csv_f)
             out_fields = reader.fieldnames + [metric_params['field_name']
                                               for metric_params in param_dict['metrics_to_calc'].values()]
@@ -110,8 +120,8 @@ def calc_metrics(params):
             writer.writeheader()
 
             # write rows
-            for idx, in_row in enumerate(reader):
-                resp_set = [in_row['resp_{}'.format(i)] for i in range(param_dict['samples_per_set'])]
+            for idx, in_row in tqdm(enumerate(reader)):
+                resp_set = [in_row['context'] + " " + in_row['resp_{}'.format(i)] for i in range(param_dict['samples_per_set'])]
                 out_row = deepcopy(in_row)
                 for metric, metric_params in param_dict['metrics_to_calc'].items():
                     metric_input = idx if metric.required_input == 'set_index' else resp_set
@@ -120,6 +130,8 @@ def calc_metrics(params):
 
             input_csv_f.close()
             output_csv_f.close()
+
+        gc.collect()
 
 
 if __name__ == '__main__':

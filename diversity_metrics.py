@@ -95,7 +95,7 @@ class BertScore(metric.Similarity2DiversityFromFileMetric):
 
 class BertSts(metric.Similarity2DiversityFromFileMetric):
 
-    use_me = True
+    use_me = False
 
     def __init__(self, config):
         super().__init__(config)
@@ -180,6 +180,83 @@ class SentBert(metric.Similarity2DiversityFromFileMetric):
         # # write results
         # np.save(self.config['cache_file'], embeds)
 
+from text_diversity import TokenSemanticDiversity, SentenceSemanticDiversity, SyntacticDiversity
+
+class TSD(TokenSemanticDiversity):
+
+    use_me = True
+    default_config = {}
+
+    def __init__(self, config={}):
+        config = {**super().default_config, **self.default_config, **config} 
+        super().__init__(config)
+
+    def __call__(self, response_set):
+        return super().__call__(response_set)
+
+
+class SSD(SentenceSemanticDiversity):
+
+    use_me = True
+    default_config = {}
+
+    def __init__(self, config={}):
+        config = {**super().default_config, **self.default_config, **config} 
+        super().__init__(config)
+
+    def __call__(self, response_set):
+        return super().__call__(response_set)
+
+
+class SD(SyntacticDiversity):
+
+    use_me = True
+    default_config = {}
+
+    def __init__(self, config={}):
+        config = {**super().default_config, **self.default_config, **config} 
+        super().__init__(config)
+
+    def __call__(self, response_set):
+        return super().__call__(response_set)
+
+class TSD_norm(TokenSemanticDiversity):
+
+    use_me = True
+    default_config = {'normalize': True}
+
+    def __init__(self, config={}):
+        config = {**super().default_config, **self.default_config, **config} 
+        super().__init__(config)
+
+    def __call__(self, response_set):
+        return super().__call__(response_set)
+
+
+class SSD_norm(SentenceSemanticDiversity):
+
+    use_me = True
+    default_config = {'normalize': True}
+
+    def __init__(self, config={}):
+        config = {**super().default_config, **self.default_config, **config} 
+        super().__init__(config)
+
+    def __call__(self, response_set):
+        return super().__call__(response_set)
+
+
+class SD_norm(SyntacticDiversity):
+
+    use_me = True
+    default_config = {'normalize': True}
+
+    def __init__(self, config={}):
+        config = {**super().default_config, **self.default_config, **config} 
+        super().__init__(config)
+
+    def __call__(self, response_set):
+        return super().__call__(response_set)
 
 if __name__ == '__main__':
 
@@ -188,6 +265,7 @@ if __name__ == '__main__':
 
     # TEST
     resp_set = ['i am going', 'i am going', 'lets go i i']
+
     config = {'n': 3}
     print_metric(CosineSimilarity2Diversity(config), resp_set)
     print_metric(DistinctNgrams(config), resp_set)
@@ -195,3 +273,12 @@ if __name__ == '__main__':
     avg_config = {'n_min': 1, 'n_max': 5}
     print_metric(AveragedCosineSimilarity(avg_config), resp_set)
     print_metric(AveragedDistinctNgrams(avg_config), resp_set)
+
+    print_metric(TSD(), resp_set)
+    print_metric(SSD(), resp_set)
+    print_metric(SD(), resp_set)
+
+    print_metric(TSD_norm(), resp_set)
+    print_metric(SSD_norm(), resp_set)
+    print_metric(SD_norm(), resp_set)
+

@@ -1,0 +1,10 @@
+{
+  "global_config": {
+    "class_name": "ConTest"
+  },
+  "experiments": {
+    "story_gen": "data/with_metrics/McDiv_nuggets/mcdiv_nuggets_no_hds_story_gen.csv",
+    "resp_gen": "data/with_metrics/McDiv_nuggets/mcdiv_nuggets_no_hds_resp_gen.csv",
+    "prompt_gen": "data/with_metrics/McDiv_nuggets/mcdiv_nuggets_no_hds_prompt_gen.csv"
+  }
+}

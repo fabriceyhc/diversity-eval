@@ -138,6 +138,34 @@ def optimal_classification_accuracy(group_1, group_2):
 
     return oca, th
 
+def chunker(seq, size):
+    return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+
+def merge_bpe(tok, boe, chars="##"):
+    new_tok = []
+    new_boe = []
+
+    emb = []
+    append = ""
+    for t, e in zip(tok[::-1], boe[::-1]):
+        t += append
+        emb.append(e)
+        if t.startswith(chars):
+            append = t.replace(chars, "")
+        else:
+            append = ""
+            new_tok.append(t)
+            new_boe.append(np.stack(emb).mean(axis=0))
+            emb = []  
+    new_tok = np.array(new_tok)[::-1]
+    new_boe = np.array(new_boe)[::-1]
+    
+    return new_tok, new_boe
+
+def find_max_list(lists):
+    list_len = [len(l) for l in lists]
+    return max(list_len)
+
 
 if __name__ == '__main__':
     pass
